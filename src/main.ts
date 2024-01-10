@@ -1,26 +1,138 @@
 import * as core from '@actions/core'
-import { wait } from './wait'
+import * as glob from '@actions/glob'
+import fs from 'fs'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import {
+  CloudFrontClient,
+  CreateInvalidationCommand
+} from '@aws-sdk/client-cloudfront'
 
-/**
- * The main function for the action.
- * @returns {Promise<void>} Resolves when the action is complete.
- */
-export async function run(): Promise<void> {
-  try {
-    const ms: string = core.getInput('milliseconds')
+export class MainRunner {
+  AWS_KEY_ID: string
+  SECRET_ACCESS_KEY: string
+  BUCKET: string
+  REGION: string
+  SOURCE_FILES: string[]
+  TARGET_DIR: string
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+  INVALIDATION_PATH?: string[]
+  DISTRIBUTION_ID?: string
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+  s3: S3Client
+  cloudFront?: CloudFrontClient
 
-    // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
-  } catch (error) {
-    // Fail the workflow run if an error occurs
-    if (error instanceof Error) core.setFailed(error.message)
+  constructor() {
+    this.AWS_KEY_ID = core.getInput('aws-access-key-id', { required: true })
+    this.SECRET_ACCESS_KEY = core.getInput('aws-secret-access-key', {
+      required: true
+    })
+    this.REGION = core.getInput('aws-region')
+    this.BUCKET = core.getInput('bucket', { required: true })
+    this.SOURCE_FILES = core.getMultilineInput('source-files', {
+      required: true
+    })
+    this.TARGET_DIR = core.getInput('target-dir', { required: true })
+
+    this.INVALIDATION_PATH = core.getMultilineInput('invalidation-path')
+    this.DISTRIBUTION_ID = core.getInput('distribution-id')
+
+    this.s3 = new S3Client({
+      region: this.REGION,
+      credentials: {
+        accessKeyId: this.AWS_KEY_ID,
+        secretAccessKey: this.SECRET_ACCESS_KEY
+      }
+    })
+
+    if (
+      isNotEmpty(this.DISTRIBUTION_ID) &&
+      isArryNotEmpty(this.INVALIDATION_PATH)
+    ) {
+      this.cloudFront = new CloudFrontClient({
+        region: this.REGION,
+        credentials: {
+          accessKeyId: this.AWS_KEY_ID,
+          secretAccessKey: this.SECRET_ACCESS_KEY
+        }
+      })
+    }
+  }
+
+  async run(): Promise<boolean> {
+    try {
+      const rootGlobber = await glob.create('./')
+      const rootDir = rootGlobber.getSearchPaths()
+      core.info(`🗃️ rootDir === ${rootDir}`)
+
+      const globber = await glob.create(this.SOURCE_FILES.join('\n'))
+      const filePathList = await globber.glob()
+      core.info(`📋 files to upload:\n${filePathList.join('\n')}`)
+      for (const filePath of filePathList) {
+        const key = `${this.TARGET_DIR}${filePath.replace(rootDir[0], '')}`
+        core.info(`⤴️ start upload: ${filePath}, s3Path =  ${key}`)
+        // 创建一个 PutObjectCommand 实例
+        const putObjectCommand = new PutObjectCommand({
+          Bucket: this.BUCKET,
+          Key: key,
+          Body: fs.createReadStream(filePath)
+        })
+        const ur = await this.s3.send(putObjectCommand)
+        if (ur && isHttpSuccess(ur.$metadata.httpStatusCode)) {
+          core.info(`✅ ${key} uploaded successfully: ${JSON.stringify(ur)}`)
+        } else {
+          const urJson = JSON.stringify(ur)
+          core.error(`❌ ${key} Error uploading file: ${urJson}`)
+          core.setFailed(urJson)
+        }
+      }
+
+      if (this.cloudFront) {
+        core.info(
+          `🗑️ paths to invalidation:\n${this.INVALIDATION_PATH?.join('\n')}`
+        )
+        // 创建一个 CreateInvalidationCommand 实例
+        const invalidationCommand = new CreateInvalidationCommand({
+          DistributionId: this.DISTRIBUTION_ID,
+          InvalidationBatch: {
+            CallerReference: Date.now().toString(),
+            Paths: {
+              Quantity: 1,
+              Items: this.INVALIDATION_PATH
+            }
+          }
+        })
+
+        const ir = await this.cloudFront.send(invalidationCommand)
+        if (ir && isHttpSuccess(ir.$metadata.httpStatusCode)) {
+          core.info(`✅ invalidation successfully: ${JSON.stringify(ir)}`)
+        }
+      }
+    } catch (error) {
+      core.error(`❌ happen Error : ${error}`)
+      core.setFailed(`${error}`)
+    }
+    return true
+  }
+
+  test(): void {
+    core.info('test!')
+  }
+}
+
+function isNotEmpty(text?: string): boolean {
+  return text != null && text.length > 0
+}
+
+function isArryNotEmpty(text?: string[]): boolean {
+  return text != null && text.length > 0
+}
+
+function isHttpSuccess(code?: number): boolean {
+  return code != null && code >= 200 && code < 400
+}
+
+export class TestRunner {
+  test(): void {
+    core.info('test')
   }
 }

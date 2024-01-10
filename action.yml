@@ -1,18 +1,41 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: aws-s3
+description: 'aws s3 & cloudfront'
+author: 'comori'
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: 'heart'
+  icon: 'life-buoy'
   color: 'red'
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  aws-access-key-id:
+    description: "AWS access key id to access your bucket"
     required: true
-    default: '1000'
+  aws-secret-access-key:
+    description: "AWS secret access key to access your bucket"
+    required: true
+  aws-region:
+    description: "AWS region where your bucket is located"
+    required: true
+    default: us-east-1
+  bucket:
+    description: "AWS s3 bucket to store the artifacts"
+    required: true
+  source-files:
+    description: 'Your sourceFiles here'
+    required: true
+  target-dir:
+    description: 's3 targetDir'
+    required: true
+  invalidation-path:
+    description: 'invalidation path list'
+    required: false
+  distribution-id:
+    description: 'Cloudfront distribution id'
+    required: false
+  
+  
 
 # Define your outputs here.
 outputs:
