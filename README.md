@@ -20,7 +20,7 @@ This is basic useage to upload files to `s3`.
 
 ```yaml
 - name: aws-s3-cloudfront
-  uses: Comori/aws-s3@v0.1.1
+  uses: Comori/aws-s3@v0.1.3
   with:
     aws-access-key-id: ${{ secrets.AWS_KEY }}
     aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
@@ -38,7 +38,7 @@ If you want to create an invalidation in `CloudFront`, Example:
 
 ```yaml
 - name: aws-s3-cloudfront
-  uses: Comori/aws-s3@v0.1.1
+  uses: Comori/aws-s3@v0.1.3
   with:
     aws-access-key-id: ${{ secrets.AWS_KEY }}
     aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
