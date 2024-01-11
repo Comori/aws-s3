@@ -63594,6 +63594,7 @@ exports.TestRunner = exports.MainRunner = void 0;
 const core = __importStar(__nccwpck_require__(42186));
 const glob = __importStar(__nccwpck_require__(28090));
 const fs_1 = __importDefault(__nccwpck_require__(57147));
+const path_1 = __importDefault(__nccwpck_require__(71017));
 const client_s3_1 = __nccwpck_require__(19250);
 const client_cloudfront_1 = __nccwpck_require__(72928);
 class MainRunner {
@@ -63647,7 +63648,7 @@ class MainRunner {
             const filePathList = await globber.glob();
             core.info(`📋 files to upload:\n${filePathList.join('\n')}`);
             for (const filePath of filePathList) {
-                const key = `${this.TARGET_DIR}${filePath.replace(rootDir[0], '')}`;
+                const key = `${this.TARGET_DIR}${autoFixPath(filePath.replace(rootDir[0], ''))}`;
                 core.info(`⤴️ start upload: ${filePath}, s3Path =  ${key}`);
                 // 创建一个 PutObjectCommand 实例
                 const putObjectCommand = new client_s3_1.PutObjectCommand({
@@ -63703,6 +63704,13 @@ function isArryNotEmpty(text) {
 }
 function isHttpSuccess(code) {
     return code != null && code >= 200 && code < 400;
+}
+function autoFixPath(rawPath) {
+    const splitPath = rawPath.split(path_1.default.sep);
+    if (splitPath && splitPath.length > 0) {
+        return splitPath.join('/');
+    }
+    return rawPath;
 }
 class TestRunner {
     test() {

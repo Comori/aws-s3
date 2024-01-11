@@ -69,7 +69,9 @@ export class MainRunner {
       const filePathList = await globber.glob()
       core.info(`📋 files to upload:\n${filePathList.join('\n')}`)
       for (const filePath of filePathList) {
-        const key = `${this.TARGET_DIR}${autoFixPath(filePath.replace(rootDir[0], ''))}`
+        const key = `${this.TARGET_DIR}${autoFixPath(
+          filePath.replace(rootDir[0], '')
+        )}`
         core.info(`⤴️ start upload: ${filePath}, s3Path =  ${key}`)
         // 创建一个 PutObjectCommand 实例
         const putObjectCommand = new PutObjectCommand({
@@ -132,9 +134,9 @@ function isHttpSuccess(code?: number): boolean {
   return code != null && code >= 200 && code < 400
 }
 
-function autoFixPath(rawPath: string) : string{
+function autoFixPath(rawPath: string): string {
   const splitPath = rawPath.split(path.sep)
-  if(splitPath && splitPath.length > 0){
+  if (splitPath && splitPath.length > 0) {
     return splitPath.join('/')
   }
   return rawPath
