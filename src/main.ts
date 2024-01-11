@@ -11,15 +11,15 @@ import {
 export class MainRunner {
   AWS_KEY_ID: string
   SECRET_ACCESS_KEY: string
-  BUCKET: string
-  REGION: string
-  SOURCE_FILES: string[]
-  TARGET_DIR: string
+  BUCKET?: string
+  REGION?: string
+  SOURCE_FILES?: string[]
+  TARGET_DIR?: string
 
   INVALIDATION_PATH?: string[]
   DISTRIBUTION_ID?: string
 
-  s3: S3Client
+  s3?: S3Client
   cloudFront?: CloudFrontClient
 
   constructor() {
@@ -28,22 +28,26 @@ export class MainRunner {
       required: true
     })
     this.REGION = core.getInput('aws-region')
-    this.BUCKET = core.getInput('bucket', { required: true })
-    this.SOURCE_FILES = core.getMultilineInput('source-files', {
-      required: true
-    })
-    this.TARGET_DIR = core.getInput('target-dir', { required: true })
+    this.BUCKET = core.getInput('bucket')
+    this.SOURCE_FILES = core.getMultilineInput('source-files')
+    this.TARGET_DIR = core.getInput('target-dir')
 
     this.INVALIDATION_PATH = core.getMultilineInput('invalidation-path')
     this.DISTRIBUTION_ID = core.getInput('distribution-id')
 
-    this.s3 = new S3Client({
-      region: this.REGION,
-      credentials: {
-        accessKeyId: this.AWS_KEY_ID,
-        secretAccessKey: this.SECRET_ACCESS_KEY
-      }
-    })
+    if (
+      isNotEmpty(this.BUCKET) &&
+      isArryNotEmpty(this.SOURCE_FILES) &&
+      isNotEmpty(this.TARGET_DIR)
+    ) {
+      this.s3 = new S3Client({
+        region: this.REGION,
+        credentials: {
+          accessKeyId: this.AWS_KEY_ID,
+          secretAccessKey: this.SECRET_ACCESS_KEY
+        }
+      })
+    }
 
     if (
       isNotEmpty(this.DISTRIBUTION_ID) &&
@@ -61,31 +65,33 @@ export class MainRunner {
 
   async run(): Promise<boolean> {
     try {
-      const rootGlobber = await glob.create('./')
-      const rootDir = rootGlobber.getSearchPaths()
-      core.info(`🗃️ rootDir === ${rootDir}`)
+      if (this.s3) {
+        const rootGlobber = await glob.create('./')
+        const rootDir = rootGlobber.getSearchPaths()
+        core.info(`🗃️ rootDir === ${rootDir}`)
 
-      const globber = await glob.create(this.SOURCE_FILES.join('\n'))
-      const filePathList = await globber.glob()
-      core.info(`📋 files to upload:\n${filePathList.join('\n')}`)
-      for (const filePath of filePathList) {
-        const key = `${this.TARGET_DIR}${autoFixPath(
-          filePath.replace(rootDir[0], '')
-        )}`
-        core.info(`⤴️ start upload: ${filePath}, s3Path =  ${key}`)
-        // 创建一个 PutObjectCommand 实例
-        const putObjectCommand = new PutObjectCommand({
-          Bucket: this.BUCKET,
-          Key: key,
-          Body: fs.createReadStream(filePath)
-        })
-        const ur = await this.s3.send(putObjectCommand)
-        if (ur && isHttpSuccess(ur.$metadata.httpStatusCode)) {
-          core.info(`✅ ${key} uploaded successfully: ${JSON.stringify(ur)}`)
-        } else {
-          const urJson = JSON.stringify(ur)
-          core.error(`❌ ${key} Error uploading file: ${urJson}`)
-          core.setFailed(urJson)
+        const globber = await glob.create(this.SOURCE_FILES!.join('\n'))
+        const filePathList = await globber.glob()
+        core.info(`📋 files to upload:\n${filePathList.join('\n')}`)
+        for (const filePath of filePathList) {
+          const key = `${this.TARGET_DIR}${autoFixPath(
+            filePath.replace(rootDir[0], '')
+          )}`
+          core.info(`⤴️ start upload: ${filePath}, s3Path =  ${key}`)
+          // 创建一个 PutObjectCommand 实例
+          const putObjectCommand = new PutObjectCommand({
+            Bucket: this.BUCKET,
+            Key: key,
+            Body: fs.createReadStream(filePath)
+          })
+          const ur = await this.s3.send(putObjectCommand)
+          if (ur && isHttpSuccess(ur.$metadata.httpStatusCode)) {
+            core.info(`✅ ${key} uploaded successfully: ${JSON.stringify(ur)}`)
+          } else {
+            const urJson = JSON.stringify(ur)
+            core.error(`❌ ${key} Error uploading file: ${urJson}`)
+            core.setFailed(urJson)
+          }
         }
       }
 
