@@ -1,4 +1,4 @@
-name: aws-s3
+name: aws-s3-cloudfront
 description: 'aws s3 & cloudfront'
 author: 'comori'
 
