@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import * as glob from '@actions/glob'
-import fs from 'fs'
+import fs, { statSync, Stats } from 'fs'
 import path from 'path'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import {
@@ -78,6 +78,11 @@ export class MainRunner {
             filePath.replace(rootDir[0], '')
           )}`
           core.info(`⤴️ start upload: ${filePath}, s3Path =  ${key}`)
+
+          if (isDirectory(filePath)) {
+            continue
+          }
+
           // 创建一个 PutObjectCommand 实例
           const putObjectCommand = new PutObjectCommand({
             Bucket: this.BUCKET,
@@ -146,6 +151,16 @@ function autoFixPath(rawPath: string): string {
     return splitPath.join('/')
   }
   return rawPath
+}
+
+function isDirectory(filePath: string): boolean {
+  try {
+    const stat: Stats = statSync(filePath)
+    return stat.isDirectory()
+  } catch (e) {
+    // 如果路径不存在，则不是文件夹
+    return false
+  }
 }
 
 export class TestRunner {

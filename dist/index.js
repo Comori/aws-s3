@@ -63593,7 +63593,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.TestRunner = exports.MainRunner = void 0;
 const core = __importStar(__nccwpck_require__(42186));
 const glob = __importStar(__nccwpck_require__(28090));
-const fs_1 = __importDefault(__nccwpck_require__(57147));
+const fs_1 = __importStar(__nccwpck_require__(57147));
 const path_1 = __importDefault(__nccwpck_require__(71017));
 const client_s3_1 = __nccwpck_require__(19250);
 const client_cloudfront_1 = __nccwpck_require__(72928);
@@ -63653,6 +63653,9 @@ class MainRunner {
                 for (const filePath of filePathList) {
                     const key = `${this.TARGET_DIR}${autoFixPath(filePath.replace(rootDir[0], ''))}`;
                     core.info(`⤴️ start upload: ${filePath}, s3Path =  ${key}`);
+                    if (isDirectory(filePath)) {
+                        continue;
+                    }
                     // 创建一个 PutObjectCommand 实例
                     const putObjectCommand = new client_s3_1.PutObjectCommand({
                         Bucket: this.BUCKET,
@@ -63715,6 +63718,16 @@ function autoFixPath(rawPath) {
         return splitPath.join('/');
     }
     return rawPath;
+}
+function isDirectory(filePath) {
+    try {
+        const stat = (0, fs_1.statSync)(filePath);
+        return stat.isDirectory();
+    }
+    catch (e) {
+        // 如果路径不存在，则不是文件夹
+        return false;
+    }
 }
 class TestRunner {
     test() {
