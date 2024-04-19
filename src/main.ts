@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import * as glob from '@actions/glob'
 import fs, { statSync, Stats } from 'fs'
 import path from 'path'
+import { lookup } from 'mime-types'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import {
   CloudFrontClient,
@@ -77,17 +78,23 @@ export class MainRunner {
           const key = `${this.TARGET_DIR}${autoFixPath(
             filePath.replace(rootDir[0], '')
           )}`
-          core.info(`⤴️ start upload: ${filePath}, s3Path =  ${key}`)
 
           if (isDirectory(filePath)) {
             continue
           }
 
+          const contentType = lookup(filePath).toString()
+
+          core.info(
+            `⤴️ start upload: ${filePath}, s3Path =  ${key}, contentType= ${contentType}`
+          )
+
           // 创建一个 PutObjectCommand 实例
           const putObjectCommand = new PutObjectCommand({
             Bucket: this.BUCKET,
             Key: key,
-            Body: fs.createReadStream(filePath)
+            Body: fs.createReadStream(filePath),
+            ContentType: contentType
           })
           const ur = await this.s3.send(putObjectCommand)
           if (ur && isHttpSuccess(ur.$metadata.httpStatusCode)) {
