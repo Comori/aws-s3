@@ -63899,7 +63899,7 @@ class MainRunner {
                     InvalidationBatch: {
                         CallerReference: Date.now().toString(),
                         Paths: {
-                            Quantity: 1,
+                            Quantity: this.INVALIDATION_PATH.length,
                             Items: this.INVALIDATION_PATH
                         }
                     }
