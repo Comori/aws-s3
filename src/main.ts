@@ -9,19 +9,30 @@ import {
   CreateInvalidationCommand
 } from '@aws-sdk/client-cloudfront'
 
+import { SSMClient, SendCommandCommand } from '@aws-sdk/client-ssm'
+
 export class MainRunner {
   AWS_KEY_ID: string
   SECRET_ACCESS_KEY: string
+
+  // S3
+  s3?: S3Client
   BUCKET?: string
   REGION?: string
   SOURCE_FILES?: string[]
   TARGET_DIR?: string
 
+  // CloudFront
+  cloudFront?: CloudFrontClient
   INVALIDATION_PATH?: string[]
   DISTRIBUTION_ID?: string
 
-  s3?: S3Client
-  cloudFront?: CloudFrontClient
+  // ssm
+  ssm?: SSMClient
+  SSM_DOCUMENT_NAME?: string
+  SSM_TARGET?: string[]
+  SSM_DOCUMENT_VERSION?: string
+  SSM_PARAMETERS?: string[]
 
   constructor() {
     this.AWS_KEY_ID = core.getInput('aws-access-key-id', { required: true })
@@ -35,6 +46,11 @@ export class MainRunner {
 
     this.INVALIDATION_PATH = core.getMultilineInput('invalidation-path')
     this.DISTRIBUTION_ID = core.getInput('distribution-id')
+
+    this.SSM_DOCUMENT_NAME = core.getInput('document-name')
+    this.SSM_TARGET = core.getMultilineInput('command-targets')
+    this.SSM_DOCUMENT_VERSION = core.getInput('document-version')
+    this.SSM_PARAMETERS = core.getMultilineInput('command-parameters')
 
     if (
       isNotEmpty(this.BUCKET) &&
@@ -56,6 +72,16 @@ export class MainRunner {
     ) {
       this.cloudFront = new CloudFrontClient({
         region: this.REGION,
+        credentials: {
+          accessKeyId: this.AWS_KEY_ID,
+          secretAccessKey: this.SECRET_ACCESS_KEY
+        }
+      })
+    }
+
+    if (isNotEmpty(this.SSM_DOCUMENT_NAME) && isArryNotEmpty(this.SSM_TARGET)) {
+      this.ssm = new SSMClient({
+        region: 'us-east-1',
         credentials: {
           accessKeyId: this.AWS_KEY_ID,
           secretAccessKey: this.SECRET_ACCESS_KEY
@@ -128,6 +154,37 @@ export class MainRunner {
           core.info(`✅ invalidation successfully: ${JSON.stringify(ir)}`)
         }
       }
+
+      if (this.ssm) {
+        core.info(`📝 SSM Document Name: ${this.SSM_DOCUMENT_NAME}`)
+        if (!isNotEmpty(this.SSM_DOCUMENT_VERSION)) {
+          this.SSM_DOCUMENT_VERSION = '$DEFAULT'
+        }
+
+        const commandTargets = parseCommandTargets(this.SSM_TARGET!)
+        const commandParameters = parseCommandParameters(this.SSM_PARAMETERS!)
+
+        const params = {
+          DocumentName: this.SSM_DOCUMENT_NAME,
+          DocumentVersion: this.SSM_DOCUMENT_VERSION,
+          Targets: commandTargets,
+          Parameters: commandParameters,
+          TimeoutSeconds: 600,
+          MaxConcurrency: '50',
+          MaxErrors: '0'
+        }
+
+        const ssmRsp = await this.ssm.send(new SendCommandCommand(params))
+        if (ssmRsp && isHttpSuccess(ssmRsp.$metadata.httpStatusCode)) {
+          core.info(
+            `✅ SSM Command sent successfully: ${ssmRsp.Command?.CommandId}`
+          )
+        } else {
+          const ssmRspJson = JSON.stringify(ssmRsp)
+          core.error(`❌ Error sending SSM Command: ${ssmRspJson}`)
+          core.setFailed(ssmRspJson)
+        }
+      }
     } catch (error) {
       core.error(`❌ happen Error : ${error}`)
       core.setFailed(`${error}`)
@@ -168,6 +225,60 @@ function isDirectory(filePath: string): boolean {
     // 如果路径不存在，则不是文件夹
     return false
   }
+}
+
+function parseCommandTargets(
+  inputArray: string[]
+): { Key: string; Values: string[] }[] {
+  const targets = []
+  let currentTarget: { Key: string; Values: string[] } = { Key: '', Values: [] }
+
+  for (const item of inputArray) {
+    const [prop, value] = item.split('=')
+
+    if (prop === 'key') {
+      // 遇到新的 key，将上一个完成的对象推入数组，并开始一个新的对象
+      if (Object.keys(currentTarget).length > 0) {
+        targets.push(currentTarget)
+      }
+      currentTarget = {
+        Key: value,
+        Values: []
+      }
+    } else if (prop === 'values') {
+      // 遇到 values，将其分割并赋值
+      if (currentTarget.Key) {
+        currentTarget.Values = value.split(',')
+      }
+    }
+  }
+
+  // 推入最后一个完成的对象
+  if (Object.keys(currentTarget).length > 0) {
+    targets.push(currentTarget)
+  }
+
+  return targets
+}
+
+/**
+ * 将键值对字符串数组转换为 SSM SendCommand 的 Parameters 对象格式。
+ * @param {string[]} inputArray 格式为 ["key=value", ...] 的数组。
+ * @returns {object} 转换后的 Parameters 对象。
+ */
+function parseCommandParameters(inputArray: string[]): {
+  [key: string]: string[]
+} {
+  const params: { [key: string]: string[] } = {}
+  for (const item of inputArray) {
+    const parts = item.split('=')
+    if (parts.length === 2) {
+      const key = parts[0]
+      const value = parts[1]
+      params[key] = [value] // 将值封装到数组中
+    }
+  }
+  return params
 }
 
 export class TestRunner {

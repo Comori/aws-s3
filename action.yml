@@ -34,8 +34,18 @@ inputs:
   distribution-id:
     description: 'Cloudfront distribution id'
     required: false
-  
-  
+  document-name:
+    description: 'SSM Document name to be used in the action'
+    required: false
+  document-version:
+    description: 'SSM Document version to be used in the action'
+    required: false
+  command-targets:
+    description: 'SSM Targets to be used in the action'
+    required: false
+  command-parameters:
+    description: 'SSM Parameters to be used in the action'
+    required: false
 
 # Define your outputs here.
 outputs:
