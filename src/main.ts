@@ -233,7 +233,7 @@ function parseCommandTargets(
   inputArray: string[]
 ): { Key: string; Values: string[] }[] {
   const targets = []
-  let currentTarget: { Key: string; Values: string[] }|null = null
+  let currentTarget: { Key: string; Values: string[] } | null = null
 
   for (const item of inputArray) {
     const [prop, value] = item.split('=')
