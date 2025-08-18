@@ -233,14 +233,14 @@ function parseCommandTargets(
   inputArray: string[]
 ): { Key: string; Values: string[] }[] {
   const targets = []
-  let currentTarget: { Key: string; Values: string[] } = { Key: '', Values: [] }
+  let currentTarget: { Key: string; Values: string[] }|null = null
 
   for (const item of inputArray) {
     const [prop, value] = item.split('=')
 
     if (prop === 'key') {
       // 遇到新的 key，将上一个完成的对象推入数组，并开始一个新的对象
-      if (Object.keys(currentTarget).length > 0) {
+      if (currentTarget && Object.keys(currentTarget).length > 0) {
         targets.push(currentTarget)
       }
       currentTarget = {
@@ -249,14 +249,14 @@ function parseCommandTargets(
       }
     } else if (prop === 'values') {
       // 遇到 values，将其分割并赋值
-      if (currentTarget.Key) {
+      if (currentTarget && currentTarget.Key) {
         currentTarget.Values = value.split(',')
       }
     }
   }
 
   // 推入最后一个完成的对象
-  if (Object.keys(currentTarget).length > 0) {
+  if (currentTarget && Object.keys(currentTarget).length > 0) {
     targets.push(currentTarget)
   }
 
