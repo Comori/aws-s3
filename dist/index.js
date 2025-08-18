@@ -119945,11 +119945,11 @@ function parseCommandTargets(inputArray) {
 function parseCommandParameters(inputArray) {
     const params = {};
     for (const item of inputArray) {
-        const parts = item.split('=');
-        if (parts.length === 2) {
-            const key = parts[0];
-            const value = parts[1];
-            params[key] = [value]; // 将值封装到数组中
+        const index = item.indexOf('=');
+        if (index > 0) {
+            const key = item.substring(0, index).trim();
+            const value = item.substring(index + 1).trim();
+            params[key] = [value];
         }
     }
     return params;
