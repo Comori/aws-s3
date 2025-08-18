@@ -174,6 +174,8 @@ export class MainRunner {
           MaxErrors: '0'
         }
 
+        core.info(`📝 SSM params: ${JSON.stringify(params)}`)
+
         const ssmRsp = await this.ssm.send(new SendCommandCommand(params))
         if (ssmRsp && isHttpSuccess(ssmRsp.$metadata.httpStatusCode)) {
           core.info(

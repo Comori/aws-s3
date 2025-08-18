@@ -119860,6 +119860,7 @@ class MainRunner {
                     MaxConcurrency: '50',
                     MaxErrors: '0'
                 };
+                core.info(`📝 SSM params: ${JSON.stringify(params)}`);
                 const ssmRsp = await this.ssm.send(new client_ssm_1.SendCommandCommand(params));
                 if (ssmRsp && isHttpSuccess(ssmRsp.$metadata.httpStatusCode)) {
                     core.info(`✅ SSM Command sent successfully: ${ssmRsp.Command?.CommandId}`);
